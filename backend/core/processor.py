@@ -104,11 +104,11 @@ class ImageProcessor:
             # Step 4: Composite
             print(f"⚗️ 4. Aşama: Montaj...")
             fg_mask = depth_map.point(lambda p: 255 if p > 80 else 0).convert("L").filter(
-                ImageFilter.GaussianBlur(10)
+                ImageFilter.GaussianBlur(20)
             )
             person_mask = Image.fromarray(
                 ((seg_np == 12) * 255).astype(np.uint8)
-            ).convert("L").filter(ImageFilter.GaussianBlur(10))
+            ).convert("L").filter(ImageFilter.GaussianBlur(20))
             
             comp = Image.composite(sharp_img, natural_img, fg_mask)
             final_image = Image.composite(natural_img, comp, person_mask)
@@ -174,9 +174,9 @@ class ImageProcessor:
                 scale=4,
                 model_path='../RealESRGAN_x4plus.pth',
                 model=model,
-                tile=200,
-                tile_pad=10,
-                pre_pad=0,
+                tile=400,
+                tile_pad=50,
+                pre_pad=10,
                 half=(self.device == 'cuda'),
                 device=self.device
             )
@@ -200,7 +200,7 @@ class ImageProcessor:
             original_cv, (ai_base.shape[1], ai_base.shape[0]), interpolation=cv2.INTER_LANCZOS4
         )
         
-        natural_cv = cv2.addWeighted(ai_base, 0.60, orig_base, 0.40, 0)
+        natural_cv = cv2.addWeighted(ai_base, 0.55, orig_base, 0.45, 0)
         sharp_cv = ai_base
         
         return (
