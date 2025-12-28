@@ -340,13 +340,18 @@ class ImageProcessor:
         # Weighted by human eye perception: Green > Red > Blue
         luminance = 0.299 * img_float[:,:,0] + 0.587 * img_float[:,:,1] + 0.114 * img_float[:,:,2]
         
-        # 2. Create Shadow Mask
-        # (1 - luminance) makes dark areas = 1 (white), bright areas = 0 (black)
-        # Power of 3 softens mask transitions
-        shadow_mask = (1.0 - luminance) ** 3.0
+        # 2. Create Shadow Mask with threshold
+        # Only affect truly dark areas (luminance < 0.35)
+        # Power of 5 creates very sharp falloff, protecting mid-tones
+        dark_threshold = 0.35
+        shadow_mask = np.where(
+            luminance < dark_threshold,
+            ((1.0 - (luminance / dark_threshold)) ** 5.0),
+            0.0
+        )
         
         # 3. Calculate Brightening Factor
-        # Only brighten where mask exists
+        # Only brighten where mask exists (dark areas)
         brightening_factor = 1.0 + (shadow_mask * shadow_strength)
         
         # 4. Apply Mask to Image (Brighten)
@@ -355,11 +360,14 @@ class ImageProcessor:
         for i in range(3):
             result_float[:,:,i] = np.clip(img_float[:,:,i] * brightening_factor, 0, 1.0)
         
-        # 5. Saturation Boost
+        # 5. Saturation Boost (only in affected areas)
         # Recovered shadows can look washed out, boost color by 10%
         result_uint8 = (result_float * 255).astype(np.uint8)
         hsv = cv2.cvtColor(result_uint8, cv2.COLOR_RGB2HSV).astype(np.float32)
-        hsv[:,:,1] = hsv[:,:,1] * 1.1  # Saturation x 1.1
+        
+        # Only boost saturation where we actually brightened (shadow_mask > 0)
+        saturation_boost = 1.0 + (shadow_mask * 0.15)  # Up to 15% boost in darkest areas
+        hsv[:,:,1] = hsv[:,:,1] * saturation_boost
         hsv[:,:,1] = np.clip(hsv[:,:,1], 0, 255)
         final_img = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2RGB)
         
